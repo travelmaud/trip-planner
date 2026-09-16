@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Home, CalendarDays, Map as MapIcon, Bell, ChevronLeft, Croissant, Landmark, Utensils, TrainFront, MapPin, X, Pencil, Trash2, Plus, FileText, Search, Loader2 } from "lucide-react";
+import { Home, CalendarDays, Map as MapIcon, Bell, ChevronLeft, Croissant, Landmark, Utensils, TrainFront, MapPin, X, Pencil, Trash2, Plus, FileText, Search, Loader2, ShoppingBag, Coffee, Camera, BedDouble, Wine } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -19,7 +19,7 @@ L.Icon.Default.mergeOptions({
 // localStorage always wins over these defaults, so without a version bump a
 // content update here would silently never reach anyone who already opened
 // the app (their old cached copy just keeps loading forever).
-const PINS_STORAGE_KEY = "trip-planner-pins-v2";
+const PINS_STORAGE_KEY = "trip-planner-pins-v3";
 const ITINERARY_STORAGE_KEY = "trip-planner-itinerary-v2";
 const ATTACHMENTS_STORAGE_KEY = "trip-planner-attachments";
 
@@ -32,6 +32,47 @@ const ICON_OPTIONS = [
   { key: "mapPin", label: "Other", icon: MapPin },
 ];
 
+// Category → Google-Maps-style pin glyph + color for saved/dropped pins.
+const PIN_CATEGORIES = {
+  hotel: { label: "Hotel", icon: BedDouble, color: "#7c5cbf" },
+  restaurant: { label: "Restaurant", icon: Utensils, color: "#d9534f" },
+  cafe: { label: "Cafe", icon: Coffee, color: "#c17f3e" },
+  shopping: { label: "Shopping", icon: ShoppingBag, color: "#2f9e6e" },
+  museum: { label: "Museum", icon: Landmark, color: "#3f6593" },
+  sight: { label: "Sight", icon: Camera, color: "#d97a4d" },
+  bar: { label: "Bar", icon: Wine, color: "#a83279" },
+  other: { label: "Other", icon: MapPin, color: "#5b86b6" },
+};
+const PIN_CATEGORY_OPTIONS = Object.entries(PIN_CATEGORIES).map(([key, v]) => ({ key, ...v }));
+
+// Raw lucide path data for the categories above, hand-copied so the map pin
+// glyphs can be built as plain SVG strings for Leaflet's DivIcon — pulling in
+// react-dom/server just to render these would nearly double the JS bundle.
+const PIN_CATEGORY_PATHS = {
+  hotel: [["path", "M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"], ["path", "M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"], ["path", "M12 4v6"], ["path", "M2 18h20"]],
+  restaurant: [["path", "M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"], ["path", "M7 2v20"], ["path", "M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"]],
+  cafe: [["path", "M10 2v2"], ["path", "M14 2v2"], ["path", "M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"], ["path", "M6 2v2"]],
+  shopping: [["path", "M16 10a4 4 0 0 1-8 0"], ["path", "M3.103 6.034h17.794"], ["path", "M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"]],
+  museum: [["path", "M10 18v-7"], ["path", "M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"], ["path", "M14 18v-7"], ["path", "M18 18v-7"], ["path", "M3 22h18"], ["path", "M6 18v-7"]],
+  sight: [["path", "M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"], ["circle", "12,13,3"]],
+  bar: [["path", "M8 22h8"], ["path", "M7 10h10"], ["path", "M12 15v7"], ["path", "M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z"]],
+  other: [["path", "M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"], ["circle", "12,10,3"]],
+};
+
+function categoryIconSvg(category, size = 15) {
+  const shapes = PIN_CATEGORY_PATHS[category] || PIN_CATEGORY_PATHS.other;
+  const inner = shapes
+    .map(([tag, val]) => {
+      if (tag === "circle") {
+        const [cx, cy, r] = val.split(",");
+        return `<circle cx="${cx}" cy="${cy}" r="${r}"/>`;
+      }
+      return `<path d="${val}"/>`;
+    })
+    .join("");
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+}
+
 const routeStops = [
   { name: "Magdeburg", lat: 52.1205, lng: 11.6276 },
   { name: "Amsterdam", lat: 52.3676, lng: 4.9041 },
@@ -39,17 +80,17 @@ const routeStops = [
 ];
 
 const DEFAULT_PINS = [
-  { id: "hotel-satellite", name: "Hotel Satellite", address: "Rue Franklin 157, 1000 Brussels, Belgium", lat: 50.8466897, lng: 4.3907001 },
-  { id: "the-crown-hotel", name: "The Crown Hotel", address: "21 Oudezijds Voorburgwal, Amsterdam City Centre, 1012 EH Amsterdam, Netherlands", lat: 52.3748641, lng: 4.8998972 },
+  { id: "hotel-satellite", name: "Hotel Satellite", address: "Rue Franklin 157, 1000 Brussels, Belgium", lat: 50.8466897, lng: 4.3907001, category: "hotel" },
+  { id: "the-crown-hotel", name: "The Crown Hotel", address: "21 Oudezijds Voorburgwal, Amsterdam City Centre, 1012 EH Amsterdam, Netherlands", lat: 52.3748641, lng: 4.8998972, category: "hotel" },
   // From the "Amsterdam & Brussels" Google My Maps layer
-  { id: "albert-cuyp-markt", name: "Albert Cuyp Markt", address: "Albert Cuypstraat, Amsterdam", lat: 52.3559, lng: 4.8926 },
-  { id: "bunbun", name: "BunBun", address: "Prinsengracht, Jordaan, Amsterdam", lat: 52.3788425, lng: 4.8865337 },
-  { id: "grachtengordel", name: "Grachtengordel", address: "Egelantiersgracht, Jordaan, Amsterdam", lat: 52.371979, lng: 4.8847268 },
-  { id: "bon-burger-west", name: "Bon Burger West", address: "Jacob van Lennepkade, Amsterdam", lat: 52.3629741, lng: 4.8622382 },
-  { id: "bar-kaat", name: "Bar Kaat", address: "Ten Katestraat, Amsterdam", lat: 52.3673756, lng: 4.8667214 },
-  { id: "lush-leidsestraat", name: "Lush", address: "Leidsestraat, Amsterdam", lat: 52.3665436, lng: 4.8874791 },
-  { id: "lush-kalverstraat", name: "LUSH", address: "Kalverstraat, Amsterdam", lat: 52.3692732, lng: 4.8911192 },
-  { id: "t-pareltje", name: "'t Pareltje", address: "Tweede Tuindwarsstraat, Jordaan, Amsterdam", lat: 52.3772302, lng: 4.8818957 },
+  { id: "albert-cuyp-markt", name: "Albert Cuyp Markt", address: "Albert Cuypstraat, Amsterdam", lat: 52.3559, lng: 4.8926, category: "shopping" },
+  { id: "bunbun", name: "BunBun", address: "Prinsengracht, Jordaan, Amsterdam", lat: 52.3788425, lng: 4.8865337, category: "cafe" },
+  { id: "grachtengordel", name: "Grachtengordel", address: "Egelantiersgracht, Jordaan, Amsterdam", lat: 52.371979, lng: 4.8847268, category: "sight" },
+  { id: "bon-burger-west", name: "Bon Burger West", address: "Jacob van Lennepkade, Amsterdam", lat: 52.3629741, lng: 4.8622382, category: "restaurant" },
+  { id: "bar-kaat", name: "Bar Kaat", address: "Ten Katestraat, Amsterdam", lat: 52.3673756, lng: 4.8667214, category: "bar" },
+  { id: "lush-leidsestraat", name: "Lush", address: "Leidsestraat, Amsterdam", lat: 52.3665436, lng: 4.8874791, category: "shopping" },
+  { id: "lush-kalverstraat", name: "LUSH", address: "Kalverstraat, Amsterdam", lat: 52.3692732, lng: 4.8911192, category: "shopping" },
+  { id: "t-pareltje", name: "'t Pareltje", address: "Tweede Tuindwarsstraat, Jordaan, Amsterdam", lat: 52.3772302, lng: 4.8818957, category: "restaurant" },
 ];
 
 const DAY_COLORS = ["#3f6593", "#8a63d2", "#d97a4d", "#2f9e6e", "#c0587a"];
@@ -712,11 +753,27 @@ function routeMarkerIcon(name) {
   });
 }
 
-const pinIcon = new L.DivIcon({
-  className: "",
-  html: `<div style="width:16px;height:16px;border-radius:999px 999px 999px 2px;background:${palette.denim};border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.4);transform:translate(-50%,-90%) rotate(45deg)"></div>`,
-  iconSize: [0, 0],
-});
+const pinIconCache = {};
+function pinIconFor(category) {
+  const key = category && PIN_CATEGORIES[category] ? category : "other";
+  if (pinIconCache[key]) return pinIconCache[key];
+  const cat = PIN_CATEGORIES[key];
+  const iconSvg = categoryIconSvg(key);
+  const icon = new L.DivIcon({
+    className: "",
+    html: `
+      <div style="position:relative;width:30px;height:38px;transform:translate(-50%,-100%);">
+        <div style="position:absolute;top:0;left:0;width:30px;height:30px;border-radius:50%;background:${cat.color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
+          ${iconSvg}
+        </div>
+        <div style="position:absolute;top:25px;left:9px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid ${cat.color};"></div>
+      </div>
+    `,
+    iconSize: [0, 0],
+  });
+  pinIconCache[key] = icon;
+  return icon;
+}
 
 function dayMarkerIcon(color) {
   return new L.DivIcon({
@@ -755,6 +812,7 @@ function MapScreen({ onOpenDay }) {
   const [itinerary] = useState(loadItinerary);
   const [draft, setDraft] = useState(null);
   const [draftName, setDraftName] = useState("");
+  const [draftCategory, setDraftCategory] = useState("other");
   const [showPins, setShowPins] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const mapRef = useRef(null);
@@ -769,9 +827,10 @@ function MapScreen({ onOpenDay }) {
 
   const savePin = () => {
     if (!draft) return;
-    setPins((p) => [...p, { id: Date.now(), lat: draft.lat, lng: draft.lng, name: draftName.trim() || "Untitled pin" }]);
+    setPins((p) => [...p, { id: Date.now(), lat: draft.lat, lng: draft.lng, name: draftName.trim() || "Untitled pin", category: draftCategory }]);
     setDraft(null);
     setDraftName("");
+    setDraftCategory("other");
   };
 
   const removePin = (id) => setPins((p) => p.filter((pin) => pin.id !== id));
@@ -780,6 +839,7 @@ function MapScreen({ onOpenDay }) {
     mapRef.current?.flyTo([result.lat, result.lng], 15);
     setDraft({ lat: result.lat, lng: result.lng });
     setDraftName(result.name);
+    setDraftCategory("other");
     setSearchOpen(false);
   };
 
@@ -853,7 +913,7 @@ function MapScreen({ onOpenDay }) {
               ))
           )}
           {pins.map((p) => (
-            <Marker key={p.id} position={[p.lat, p.lng]} icon={pinIcon}>
+            <Marker key={p.id} position={[p.lat, p.lng]} icon={pinIconFor(p.category)}>
               <Popup>
                 <div className="flex flex-col gap-1">
                   <span className="text-sm font-medium">{p.name}</span>
@@ -869,8 +929,8 @@ function MapScreen({ onOpenDay }) {
               </Popup>
             </Marker>
           ))}
-          {draft && <Marker position={[draft.lat, draft.lng]} icon={pinIcon} />}
-          <ClickToAddPin onPick={(latlng) => { setDraft(latlng); setDraftName(""); }} />
+          {draft && <Marker position={[draft.lat, draft.lng]} icon={pinIconFor(draftCategory)} />}
+          <ClickToAddPin onPick={(latlng) => { setDraft(latlng); setDraftName(""); setDraftCategory("other"); }} />
         </MapContainer>
 
         {draft && (
@@ -884,6 +944,23 @@ function MapScreen({ onOpenDay }) {
               className="text-sm px-3 py-2 rounded-lg border outline-none"
               style={{ borderColor: palette.paleSky, color: palette.ink }}
             />
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              {PIN_CATEGORY_OPTIONS.map((opt) => {
+                const OptIcon = opt.icon;
+                const selected = draftCategory === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => setDraftCategory(opt.key)}
+                    aria-label={opt.label}
+                    className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: selected ? opt.color : palette.paleSky }}
+                  >
+                    <OptIcon size={13} color={selected ? "#fff" : palette.navy} />
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex justify-end gap-4">
               <button onClick={() => setDraft(null)} className="text-xs font-medium" style={{ color: palette.slate }}>Cancel</button>
               <button onClick={savePin} className="text-xs font-semibold" style={{ color: palette.denim }}>Save pin</button>
@@ -912,24 +989,30 @@ function MapScreen({ onOpenDay }) {
               {pins.length === 0 ? (
                 <p className="text-xs" style={{ color: palette.slate }}>No pins yet — tap anywhere on the map to save a place.</p>
               ) : (
-                pins.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-start justify-between gap-2 rounded-xl px-3 py-2"
-                    style={{ background: "#f5f9fd" }}
-                  >
-                    <div className="flex items-start gap-2">
-                      <MapPin size={14} color={palette.denim} style={{ marginTop: 2 }} />
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: palette.ink }}>{p.name}</p>
-                        {p.address && <p className="text-xs mt-0.5" style={{ color: palette.slate }}>{p.address}</p>}
+                pins.map((p) => {
+                  const cat = PIN_CATEGORIES[p.category] || PIN_CATEGORIES.other;
+                  const CatIcon = cat.icon;
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-start justify-between gap-2 rounded-xl px-3 py-2"
+                      style={{ background: "#f5f9fd" }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: cat.color, marginTop: 1 }}>
+                          <CatIcon size={12} color="#fff" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: palette.ink }}>{p.name}</p>
+                          {p.address && <p className="text-xs mt-0.5" style={{ color: palette.slate }}>{p.address}</p>}
+                        </div>
                       </div>
+                      <button onClick={() => removePin(p.id)} aria-label={`Remove ${p.name}`} className="shrink-0">
+                        <X size={14} color={palette.slate} />
+                      </button>
                     </div>
-                    <button onClick={() => removePin(p.id)} aria-label={`Remove ${p.name}`} className="shrink-0">
-                      <X size={14} color={palette.slate} />
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
