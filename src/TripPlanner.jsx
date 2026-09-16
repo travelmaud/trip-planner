@@ -818,7 +818,7 @@ function MapScreen({ onOpenDay }) {
       </div>
 
       <div className="flex-1 relative">
-        <MapContainer center={[51.5, 6.5]} zoom={7} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+        <MapContainer center={[52.3676, 4.9041]} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
