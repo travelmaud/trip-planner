@@ -59,8 +59,7 @@ const PIN_CATEGORY_PATHS = {
   other: [["path", "M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"], ["circle", "12,10,3"]],
 };
 
-function categoryIconSvg(category, size = 15) {
-  const shapes = PIN_CATEGORY_PATHS[category] || PIN_CATEGORY_PATHS.other;
+function svgFromShapes(shapes, size) {
   const inner = shapes
     .map(([tag, val]) => {
       if (tag === "circle") {
@@ -71,6 +70,38 @@ function categoryIconSvg(category, size = 15) {
     })
     .join("");
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+}
+
+function categoryIconSvg(category, size = 15) {
+  return svgFromShapes(PIN_CATEGORY_PATHS[category] || PIN_CATEGORY_PATHS.other, size);
+}
+
+// Itinerary stops use their own icon vocabulary (set via the pencil/edit
+// button on the Trip tab — see ICON_OPTIONS). Reuse matching pin glyphs
+// where the shape overlaps, and add the two that don't (croissant, train).
+const ITINERARY_ICON_PATHS = {
+  landmark: PIN_CATEGORY_PATHS.museum,
+  utensils: PIN_CATEGORY_PATHS.restaurant,
+  mapPin: PIN_CATEGORY_PATHS.other,
+  croissant: [
+    ["path", "M10.2 18H4.774a1.5 1.5 0 0 1-1.352-.97 11 11 0 0 1 .132-6.487"],
+    ["path", "M18 10.2V4.774a1.5 1.5 0 0 0-.97-1.352 11 11 0 0 0-6.486.132"],
+    ["path", "M18 5a4 3 0 0 1 4 3 2 2 0 0 1-2 2 10 10 0 0 0-5.139 1.42"],
+    ["path", "M5 18a3 4 0 0 0 3 4 2 2 0 0 0 2-2 10 10 0 0 1 1.42-5.14"],
+    ["path", "M8.709 2.554a10 10 0 0 0-6.155 6.155 1.5 1.5 0 0 0 .676 1.626l9.807 5.42a2 2 0 0 0 2.718-2.718l-5.42-9.807a1.5 1.5 0 0 0-1.626-.676"],
+  ],
+  trainFront: [
+    ["path", "M8 3.1V7a4 4 0 0 0 8 0V3.1"],
+    ["path", "m9 15-1-1"],
+    ["path", "m15 15 1-1"],
+    ["path", "M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"],
+    ["path", "m8 19-2 3"],
+    ["path", "m16 19 2 3"],
+  ],
+};
+
+function itineraryIconSvg(iconKey, size = 12) {
+  return svgFromShapes(ITINERARY_ICON_PATHS[iconKey] || ITINERARY_ICON_PATHS.mapPin, size);
 }
 
 const routeStops = [
@@ -775,12 +806,18 @@ function pinIconFor(category) {
   return icon;
 }
 
-function dayMarkerIcon(color) {
-  return new L.DivIcon({
+const dayMarkerIconCache = {};
+function dayMarkerIcon(color, iconKey) {
+  const cacheKey = `${color}|${iconKey}`;
+  if (dayMarkerIconCache[cacheKey]) return dayMarkerIconCache[cacheKey];
+  const svg = itineraryIconSvg(iconKey);
+  const icon = new L.DivIcon({
     className: "",
-    html: `<div style="width:14px;height:14px;border-radius:999px;background:${color};border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`,
+    html: `<div style="width:22px;height:22px;border-radius:999px;background:${color};border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;">${svg}</div>`,
     iconSize: [0, 0],
   });
+  dayMarkerIconCache[cacheKey] = icon;
+  return icon;
 }
 
 function ClickToAddPin({ onPick }) {
@@ -892,7 +929,7 @@ function MapScreen({ onOpenDay }) {
             d.stops
               .filter((s) => s.lat != null && s.lng != null)
               .map((s, si) => (
-                <Marker key={`${di}-${si}`} position={[s.lat, s.lng]} icon={dayMarkerIcon(DAY_COLORS[di % DAY_COLORS.length])}>
+                <Marker key={`${di}-${si}`} position={[s.lat, s.lng]} icon={dayMarkerIcon(DAY_COLORS[di % DAY_COLORS.length], s.icon)}>
                   <Popup>
                     <div className="flex flex-col gap-1" style={{ minWidth: 170 }}>
                       <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: DAY_COLORS[di % DAY_COLORS.length] }}>
