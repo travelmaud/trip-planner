@@ -76,6 +76,7 @@ const days = [
       { time: "09:00", title: "Albert Cuyp Market", note: "Breakfast, stroopwafels", icon: "croissant", lat: 52.3559, lng: 4.8926, place: "Albert Cuypmarkt" },
       { time: "13:00", title: "Rijksmuseum", note: "Booked in advance", icon: "landmark", lat: 52.36, lng: 4.8852, place: "Rijksmuseum" },
       { time: "16:00", title: "Winkel 43", note: "Coffee + apple pie", icon: "utensils", lat: 52.3838, lng: 4.8853, place: "Winkel 43" },
+      { time: "20:00", title: "Luxury Canal Cruise", note: "Unlimited cocktails/bubbles · €47.74 · Arrive 19:45 at the jetty, Oudezijds Voorburgwal 230 (near Dam Square)", icon: "landmark", lat: 52.3722, lng: 4.8958, place: "Oudezijds Voorburgwal 230" },
     ],
   },
   {
@@ -86,6 +87,8 @@ const days = [
       { time: "11:00", title: "Dam Square", note: "Free, central wandering", icon: "landmark", lat: 52.3731, lng: 4.8926, place: "Dam Square" },
       { time: "13:00", title: "Nieuwmarkt", note: "Lunch on the square", icon: "utensils", lat: 52.3724, lng: 4.9004, place: "Nieuwmarkt" },
       { time: "21:10", title: "Eurostar to Brussels", note: "Amsterdam Centraal → Midi", icon: "trainFront", lat: 52.3791, lng: 4.9003, place: "Amsterdam Centraal" },
+      { time: "23:23", title: "Arrive Brussel-Zuid", note: "Change here: IC train to Brussel-Centraal (4 min), then bus 63 to the hotel", icon: "trainFront", lat: 50.8361, lng: 4.3358, place: "Brussel-Zuid" },
+      { time: "23:50", title: "Check in — Hôtel Satellite", note: "Bus 63 to Gueux stop, then 1 min walk", icon: "mapPin", lat: 50.8466897, lng: 4.3907001, place: "Hôtel Satellite" },
     ],
   },
   {
@@ -163,7 +166,7 @@ function BottomNav({ tab, setTab }) {
   );
 }
 
-function HomeScreen({ goTrip }) {
+function HomeScreen({ goTrip, onOpenDay }) {
   return (
     <div
       className="h-full overflow-y-auto pb-24"
@@ -219,20 +222,28 @@ function HomeScreen({ goTrip }) {
 
       <p className="px-6 mt-6 text-[11px] uppercase tracking-[0.2em]" style={{ color: palette.slate }}>Stops</p>
       <div className="px-6 mt-2 flex flex-col gap-3">
-        <div className="rounded-2xl overflow-hidden flex" style={{ background: "#fff", boxShadow: "0 4px 14px rgba(27,53,84,0.08)" }}>
+        <button
+          onClick={() => onOpenDay?.(0)}
+          className="rounded-2xl overflow-hidden flex w-full text-left"
+          style={{ background: "#fff", boxShadow: "0 4px 14px rgba(27,53,84,0.08)" }}
+        >
           <img src={IMG.amsterdam} className="w-20 h-20 object-cover" alt="Amsterdam" />
           <div className="p-3 flex-1">
             <h3 className="font-semibold text-sm" style={{ color: palette.ink }}>Amsterdam</h3>
             <p className="text-xs" style={{ color: palette.slate }}>21 – 23 Sept · The Crown Hotel</p>
           </div>
-        </div>
-        <div className="rounded-2xl overflow-hidden flex" style={{ background: "#fff", boxShadow: "0 4px 14px rgba(27,53,84,0.08)" }}>
+        </button>
+        <button
+          onClick={() => onOpenDay?.(2)}
+          className="rounded-2xl overflow-hidden flex w-full text-left"
+          style={{ background: "#fff", boxShadow: "0 4px 14px rgba(27,53,84,0.08)" }}
+        >
           <img src={IMG.brussels} className="w-20 h-20 object-cover" alt="Brussels" />
           <div className="p-3 flex-1">
             <h3 className="font-semibold text-sm" style={{ color: palette.ink }}>Brussels</h3>
             <p className="text-xs" style={{ color: palette.slate }}>23 – 25 Sept · Hotel Satellite</p>
           </div>
-        </div>
+        </button>
       </div>
 
       <AttachmentsSection />
@@ -933,7 +944,7 @@ export default function TravelAppPrototype() {
         className="relative rounded-[2.5rem] overflow-hidden border-[6px]"
         style={{ width: 380, height: 780, borderColor: palette.ink, boxShadow: "0 30px 60px rgba(0,0,0,0.4)" }}
       >
-        {tab === "home" && <HomeScreen goTrip={() => goToTab("trip")} />}
+        {tab === "home" && <HomeScreen goTrip={() => goToTab("trip")} onOpenDay={openDayInItinerary} />}
         {tab === "trip" && <TripScreen back={() => goToTab("home")} initialActive={requestedDay ?? 0} />}
         {tab === "map" && <MapScreen onOpenDay={openDayInItinerary} />}
         <BottomNav tab={tab} setTab={goToTab} />

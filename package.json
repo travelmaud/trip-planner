@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "predeploy": "vite build",
+    "predeploy": "DEPLOY_TARGET=gh-pages vite build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
