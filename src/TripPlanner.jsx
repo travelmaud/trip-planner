@@ -222,8 +222,9 @@ function HomeScreen({ goTrip, onOpenDay }) {
 
       <div className="px-6 mt-4 flex gap-2">
         {days.map((d, i) => (
-          <div
+          <button
             key={d.label}
+            onClick={() => onOpenDay?.(i)}
             className="flex-1 rounded-xl py-2 text-center"
             style={{ background: i === 0 ? palette.denim : palette.paleSky }}
           >
@@ -233,7 +234,7 @@ function HomeScreen({ goTrip, onOpenDay }) {
             <p className="text-xs font-bold" style={{ color: i === 0 ? "#fff" : palette.navy }}>
               {d.label.split(" ")[1]}
             </p>
-          </div>
+          </button>
         ))}
       </div>
 
