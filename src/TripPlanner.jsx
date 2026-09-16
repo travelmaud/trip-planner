@@ -14,8 +14,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-const PINS_STORAGE_KEY = "trip-planner-pins";
-const ITINERARY_STORAGE_KEY = "trip-planner-itinerary";
+// Bump the "-vN" suffix on PINS_STORAGE_KEY / ITINERARY_STORAGE_KEY whenever
+// DEFAULT_PINS or the default `days` itinerary below changes. Saved data in
+// localStorage always wins over these defaults, so without a version bump a
+// content update here would silently never reach anyone who already opened
+// the app (their old cached copy just keeps loading forever).
+const PINS_STORAGE_KEY = "trip-planner-pins-v2";
+const ITINERARY_STORAGE_KEY = "trip-planner-itinerary-v2";
 const ATTACHMENTS_STORAGE_KEY = "trip-planner-attachments";
 
 const ICONS = { trainFront: TrainFront, landmark: Landmark, utensils: Utensils, croissant: Croissant, mapPin: MapPin };
@@ -36,6 +41,15 @@ const routeStops = [
 const DEFAULT_PINS = [
   { id: "hotel-satellite", name: "Hotel Satellite", address: "Rue Franklin 157, 1000 Brussels, Belgium", lat: 50.8466897, lng: 4.3907001 },
   { id: "the-crown-hotel", name: "The Crown Hotel", address: "21 Oudezijds Voorburgwal, Amsterdam City Centre, 1012 EH Amsterdam, Netherlands", lat: 52.3748641, lng: 4.8998972 },
+  // From the "Amsterdam & Brussels" Google My Maps layer
+  { id: "albert-cuyp-markt", name: "Albert Cuyp Markt", address: "Albert Cuypstraat, Amsterdam", lat: 52.3559, lng: 4.8926 },
+  { id: "bunbun", name: "BunBun", address: "Prinsengracht, Jordaan, Amsterdam", lat: 52.3788425, lng: 4.8865337 },
+  { id: "grachtengordel", name: "Grachtengordel", address: "Egelantiersgracht, Jordaan, Amsterdam", lat: 52.371979, lng: 4.8847268 },
+  { id: "bon-burger-west", name: "Bon Burger West", address: "Jacob van Lennepkade, Amsterdam", lat: 52.3629741, lng: 4.8622382 },
+  { id: "bar-kaat", name: "Bar Kaat", address: "Ten Katestraat, Amsterdam", lat: 52.3673756, lng: 4.8667214 },
+  { id: "lush-leidsestraat", name: "Lush", address: "Leidsestraat, Amsterdam", lat: 52.3665436, lng: 4.8874791 },
+  { id: "lush-kalverstraat", name: "LUSH", address: "Kalverstraat, Amsterdam", lat: 52.3692732, lng: 4.8911192 },
+  { id: "t-pareltje", name: "'t Pareltje", address: "Tweede Tuindwarsstraat, Jordaan, Amsterdam", lat: 52.3772302, lng: 4.8818957 },
 ];
 
 const DAY_COLORS = ["#3f6593", "#8a63d2", "#d97a4d", "#2f9e6e", "#c0587a"];
@@ -63,7 +77,10 @@ const days = [
     full: "Monday, 21 September",
     city: "Amsterdam",
     stops: [
+      { time: "06:33", title: "Leave home", note: "Tram STR4 to ZOB Magdeburg", icon: "trainFront", lat: 52.1315634, lng: 11.624659, place: "Home" },
+      { time: "07:00", title: "FlixBus N1325 departs", note: "ZOB Magdeburg → Amsterdam Sloterdijk", icon: "trainFront", lat: 52.1315634, lng: 11.624659, place: "ZOB Magdeburg" },
       { time: "15:00", title: "Arrive Sloterdijk", note: "FlixBus N1325 from Magdeburg", icon: "trainFront", lat: 52.3888, lng: 4.8384, place: "Amsterdam Sloterdijk" },
+      { time: "15:14", title: "Board IC 2342 to Amsterdam Centraal", note: "~6 min · tap your contactless card in and out — no ticket needed", icon: "trainFront", lat: 52.3888, lng: 4.8384, place: "Amsterdam Sloterdijk" },
       { time: "16:30", title: "Jordaan wander", note: "Canal houses, no ticket needed", icon: "landmark", lat: 52.3745, lng: 4.8822, place: "Jordaan" },
       { time: "18:30", title: "Foodhallen", note: "Dinner — budget food market", icon: "utensils", lat: 52.3669, lng: 4.8698, place: "Foodhallen" },
     ],
@@ -87,8 +104,8 @@ const days = [
       { time: "11:00", title: "Dam Square", note: "Free, central wandering", icon: "landmark", lat: 52.3731, lng: 4.8926, place: "Dam Square" },
       { time: "13:00", title: "Nieuwmarkt", note: "Lunch on the square", icon: "utensils", lat: 52.3724, lng: 4.9004, place: "Nieuwmarkt" },
       { time: "21:10", title: "Eurostar to Brussels", note: "Amsterdam Centraal → Midi", icon: "trainFront", lat: 52.3791, lng: 4.9003, place: "Amsterdam Centraal" },
-      { time: "23:23", title: "Arrive Brussel-Zuid", note: "Change here: IC train to Brussel-Centraal (4 min), then bus 63 to the hotel", icon: "trainFront", lat: 50.8361, lng: 4.3358, place: "Brussel-Zuid" },
-      { time: "23:50", title: "Check in — Hôtel Satellite", note: "Bus 63 to Gueux stop, then 1 min walk", icon: "mapPin", lat: 50.8466897, lng: 4.3907001, place: "Hôtel Satellite" },
+      { time: "23:23", title: "Arrive Brussel-Zuid", note: "Public transport (~27 min): IC to Brussel-Centraal (4 min) → walk 3 min → bus 63 to Gueux stop (12 min, 9 stops) → walk 1 min. Or Uber (~10-12 min, est. €15-20, check app for live price)", icon: "trainFront", lat: 50.8361, lng: 4.3358, place: "Brussel-Zuid" },
+      { time: "23:50", title: "Check in — Hôtel Satellite", note: "Get off bus 63 at the Gueux stop, then 1 min walk to the hotel", icon: "mapPin", lat: 50.8466897, lng: 4.3907001, place: "Hôtel Satellite" },
     ],
   },
   {
